@@ -331,15 +331,15 @@ Docker Compose 还支持：
 | `POSTGRES_DB` | 必填 | 数据库名 |
 | `POSTGRES_USER` | 必填 | 数据库用户 |
 | `POSTGRES_PASSWORD` | 必填 | 数据库密码 |
-| `XIANYU_IMAGE` | `ghcr.io/christ9038/ydisks-xianyu-helper:latest` | 应用镜像与标签 |
+| `XIANYU_IMAGE` | `ghcr.io/haojundeveloper/ydisks-xianyu-helper:main` | 应用镜像与标签 |
 | `XIANYU_BIND_ADDRESS` | `0.0.0.0` | 应用在宿主机上的绑定地址 |
 | `XIANYU_HTTP_PORT` | `59188` | 应用在宿主机上的端口 |
 
-默认 `compose.yml` 直接拉取 GHCR 的 `:latest` 多架构镜像；如需固定版本，请把
-`XIANYU_IMAGE` 设置为完整镜像地址，例如
-`ghcr.io/christ9038/ydisks-xianyu-helper:v1.2.3`、
-`ghcr.io/christ9038/ydisks-xianyu-helper:main` 或
-`ghcr.io/christ9038/ydisks-xianyu-helper:sha-<完整提交号>`。
+默认 `compose.yml` 直接拉取当前仓库 GHCR 的 `:main` 多架构镜像；正式发布后可把
+`XIANYU_IMAGE` 切换到 `:latest` 或固定版本，例如
+`ghcr.io/haojundeveloper/ydisks-xianyu-helper:v1.2.3`、
+`ghcr.io/haojundeveloper/ydisks-xianyu-helper:main` 或
+`ghcr.io/haojundeveloper/ydisks-xianyu-helper:sha-<完整提交号>`。
 
 `XIANYU_DATA_KEY` 用于加密 Cookie、账号密码、设备令牌、访问令牌、AI/SMTP 密钥和
 通知凭证。启用后，服务会自动升级历史明文数据。密钥丢失或更换后，已有加密数据将
@@ -405,7 +405,7 @@ LocalAI 或兼容网关。只有在明确了解数据流向时才应向外部 AI
 GitHub Actions 会将同一标签发布为多架构镜像：
 
 ```text
-ghcr.io/christ9038/ydisks-xianyu-helper:latest
+ghcr.io/haojundeveloper/ydisks-xianyu-helper:main
 ├── linux/amd64
 └── linux/arm64
 ```

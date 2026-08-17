@@ -12,7 +12,12 @@ func TestResolvePersistentUserDataDirConvertsRelativePathAndCreatesDirectory(t *
 	if err != nil {
 		t.Fatalf("Getwd: %v", err)
 	}
-	target := filepath.Join(t.TempDir(), "nested", "profile")
+	tempRoot, err := os.MkdirTemp(cwd, "user-data-dir-test-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempRoot) })
+	target := filepath.Join(tempRoot, "nested", "profile")
 	relative, err := filepath.Rel(cwd, target)
 	if err != nil {
 		t.Fatalf("Rel: %v", err)
