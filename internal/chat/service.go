@@ -65,6 +65,16 @@ func (s *Service) RecordConversationPage(ctx context.Context, accountID, myID st
 		}
 		lastWrap, _ := conv["lastMessage"].(map[string]any)
 		last, _ := lastWrap["message"].(map[string]any)
+		itemID := firstNonEmpty(
+			cleanNilString(ext["itemId"]),
+			extractString(last, "itemId", "item_id", "itemID"),
+			extractItemIDFromURL(last),
+		)
+		// 在线聊天只接收能明确归属到商品的会话。账号的其他私聊、系统
+		// 通知和无商品上下文的会话不落库，避免聊天页暴露完整账号消息。
+		if itemID == "" {
+			continue
+		}
 		// The conversation endpoint can return empty shells for notification
 		// recipients. The official web client does not render these as contacts;
 		// importing them creates fake users such as numeric IDs with “暂无消息”.
@@ -115,7 +125,7 @@ func (s *Service) RecordConversationPage(ctx context.Context, accountID, myID st
 		}
 		unreadCount := s.conversationUnreadCount(ctx, accountID, cid, peerID, conv, last, summary)
 		session := db.ChatSession{CookieID: accountID, ChatID: cid, BuyerID: peerID, BuyerName: peerName, BuyerAvatar: avatar,
-			ItemID: cleanNilString(ext["itemId"]), ItemTitle: cleanNilString(ext["itemTitle"]), LastMessage: summary,
+			ItemID: itemID, ItemTitle: cleanNilString(ext["itemTitle"]), LastMessage: summary,
 			LastMessageAt: lastMessageAt, UnreadCount: unreadCount}
 		if err := s.store.Chats.UpsertSession(ctx, session); err != nil {
 			return page, err
@@ -304,6 +314,11 @@ func (s *Service) RecordIncoming(ctx context.Context, in Incoming) (*db.ChatMess
 	if s == nil || s.store == nil || s.store.Chats == nil {
 		return nil, false, fmt.Errorf("聊天服务未初始化")
 	}
+	itemID := firstNonEmpty(in.ItemID, extractString(in.Raw, "itemId", "item_id", "itemID"), extractItemIDFromURL(in.Raw))
+	if itemID == "" {
+		return nil, false, nil
+	}
+	in.ItemID = itemID
 	sentAt := extractUnixMilli(in.Raw)
 	if sentAt == 0 {
 		sentAt = time.Now().UTC().UnixMilli()
@@ -347,11 +362,15 @@ func (s *Service) RecordHistoryPage(ctx context.Context, accountID, chatID, myID
 	models, _ := body["userMessageModels"].([]any)
 	for i := len(models) - 1; i >= 0; i-- { // official API returns newest first
 		model, _ := models[i].(map[string]any)
+		itemID := firstNonEmpty(extractString(model, "itemId", "item_id", "itemID"), extractItemIDFromURL(model), session.ItemID)
+		if itemID == "" {
+			continue
+		}
 		message, ok := parseHistoryMessage(accountID, chatID, myID, model)
 		if !ok {
 			continue
 		}
-		session.CookieID, session.ChatID = accountID, chatID
+		session.CookieID, session.ChatID, session.ItemID = accountID, chatID, itemID
 		if message.Direction == "incoming" && message.MessageType != "system" {
 			if session.BuyerID == "" {
 				session.BuyerID = message.SenderID
@@ -664,6 +683,33 @@ func extractString(value any, keys ...string) string {
 		return ""
 	}
 	return walk(value)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if text := strings.TrimSpace(value); text != "" && text != "<nil>" {
+			return text
+		}
+	}
+	return ""
+}
+
+func extractItemID(urlValue string) string {
+	const key = "itemId="
+	index := strings.Index(urlValue, key)
+	if index < 0 {
+		return ""
+	}
+	value := urlValue[index+len(key):]
+	if end := strings.IndexAny(value, "&\n\r"); end >= 0 {
+		value = value[:end]
+	}
+	return strings.TrimSpace(value)
+}
+
+func extractItemIDFromURL(value any) string {
+	urlValue := extractString(value, "reminderUrl", "reminderURL", "url")
+	return extractItemID(urlValue)
 }
 
 func extractUnixMilli(raw map[string]any) int64 {

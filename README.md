@@ -331,7 +331,8 @@ Docker Compose 还支持：
 | `POSTGRES_DB` | 必填 | 数据库名 |
 | `POSTGRES_USER` | 必填 | 数据库用户 |
 | `POSTGRES_PASSWORD` | 必填 | 数据库密码 |
-| `XIANYU_IMAGE` | `ghcr.io/haojundeveloper/ydisks-xianyu-helper:main` | 应用镜像与标签 |
+| `XIANYU_IMAGE_SOURCE` | `ghcr.io/haojundeveloper/ydisks-xianyu-helper:main` | `deploy/update.sh` 使用的更新通道 |
+| `XIANYU_IMAGE` | `ghcr.io/haojundeveloper/ydisks-xianyu-helper:main` | Compose 实际运行的镜像或不可变 digest |
 | `XIANYU_BIND_ADDRESS` | `0.0.0.0` | 应用在宿主机上的绑定地址 |
 | `XIANYU_HTTP_PORT` | `59188` | 应用在宿主机上的端口 |
 
@@ -490,6 +491,44 @@ docker compose logs --tail=200 app
 正式安装包和 Docker 镜像会注入对应版本、提交号和构建时间；源码运行默认显示
 `dev`/`unknown`。管理后台侧边栏底部也会显示当前运行版本和短提交号。
 
+### 一键更新与失败回滚
+
+服务器部署建议将本仓库的 `compose.yml` 和 `deploy/update.sh` 放在同一目录，并把真实
+`.env` 保存在该目录且权限设为 `0600`。`update.sh` 会从 `XIANYU_IMAGE_SOURCE` 拉取当前
+通道，解析为不可变 digest，更新前备份 PostgreSQL，然后启动新镜像并等待 `/health` 返回
+成功；失败时恢复旧 digest、数据库备份和应用容器。脚本不会删除 Docker 数据卷。
+
+```bash
+chmod 750 deploy/update.sh
+./deploy/update.sh
+```
+
+服务器首次部署可使用部署用户有权访问的目录，例如 `/home/<deploy-user>/services/ydisks-xianyu-helper`。
+生产 `.env` 至少应包含 `POSTGRES_*`、`DATABASE_URL`、`XIANYU_DATA_KEY`、
+`XIANYU_ADMIN_PASSWORD` 和 `XIANYU_IMAGE_SOURCE`。管理员初始密码只保存在 `.env`，
+不要写入命令历史或提交到 Git。
+
+脚本在 `.deploy/current-image` 保存当前 digest，在 `backups/` 保留 PostgreSQL 备份。
+备份默认保留 14 天；数据库卷、上传文件卷和浏览器数据卷不会被清理。建议在更新后检查：
+
+```bash
+docker compose ps
+curl -fsS http://127.0.0.1:59188/health
+docker compose logs --tail=100 app
+```
+
+更新前请确认 `XIANYU_DATA_KEY` 没有变化。若要切换到正式版本，可把
+`XIANYU_IMAGE_SOURCE` 改为版本标签；更新脚本仍会把它解析并固定为 digest。
+
+### 手动重启
+
+```bash
+docker compose restart app
+```
+
+需要同时重启应用和 PostgreSQL 时使用 `docker compose up -d`。不要使用 `docker compose down -v`，
+否则会删除 Compose 管理的数据卷。
+
 ### 更新镜像
 
 ```bash
@@ -498,7 +537,8 @@ docker compose up -d
 docker compose logs --tail=100 app
 ```
 
-更新前请先备份数据库，并确认 `.env` 中的 `XIANYU_DATA_KEY` 未发生变化。
+生产环境推荐使用上面的 `deploy/update.sh`，因为直接 `pull` 和 `up` 不会自动备份数据库，
+也不会在健康检查失败时回滚。
 
 ### 备份 PostgreSQL
 

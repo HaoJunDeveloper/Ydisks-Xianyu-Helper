@@ -222,7 +222,7 @@ func (s *ChatStore) ListSessions(ctx context.Context, userID int64, cookieID str
 	rows, err := s.DB.QueryContext(ctx, `SELECT cs.cookie_id,cs.chat_id,cs.buyer_id,cs.buyer_name,cs.buyer_avatar_url,
 		cs.item_id,cs.item_title,cs.last_message,cs.last_message_at,cs.unread_count
 		FROM chat_sessions cs JOIN cookies c ON c.id=cs.cookie_id
-		WHERE c.user_id=? AND cs.cookie_id=? ORDER BY cs.last_message_at DESC LIMIT ?`, userID, cookieID, limit)
+		WHERE c.user_id=? AND cs.cookie_id=? AND TRIM(COALESCE(cs.item_id,''))<>'' ORDER BY cs.last_message_at DESC LIMIT ?`, userID, cookieID, limit)
 	if err != nil {
 		return nil, err
 	}

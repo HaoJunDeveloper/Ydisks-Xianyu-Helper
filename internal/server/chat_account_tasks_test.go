@@ -23,7 +23,7 @@ func TestChatHistoryAndAccountTaskSettingsEndpoints(t *testing.T) {
 	handler := srv.Router()
 	cookie := loginHelper(t, handler)
 
-	_, _, err := store.Chats.SaveMessage(context.Background(), db.ChatSession{CookieID: "acc1", ChatID: "chat-1", BuyerID: "buyer-1", BuyerName: "买家甲"},
+	_, _, err := store.Chats.SaveMessage(context.Background(), db.ChatSession{CookieID: "acc1", ChatID: "chat-1", BuyerID: "buyer-1", BuyerName: "买家甲", ItemID: "item-1"},
 		db.ChatMessage{MessageKey: "platform-1", Direction: "incoming", SenderID: "buyer-1", SenderName: "买家甲", MessageType: "text", Content: "你好", Status: "received", SentAt: 1000}, true)
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestChatWebSocketStreamsOnlyAuthenticatedAccountEvents(t *testing.T) {
 		t.Fatalf("ready=%+v err=%v", ready, err)
 	}
 	if _, _, err := service.RecordIncoming(ctx, chat.Incoming{AccountID: "acc1", ChatID: "chat-live", BuyerID: "buyer",
-		BuyerName: "实时买家", Text: "实时消息", Raw: map[string]any{"messageId": "live-1"}}); err != nil {
+		BuyerName: "实时买家", Text: "实时消息", ItemID: "item-1", Raw: map[string]any{"messageId": "live-1"}}); err != nil {
 		t.Fatal(err)
 	}
 	var event chat.Event

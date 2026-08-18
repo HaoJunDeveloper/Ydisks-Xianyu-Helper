@@ -23,7 +23,7 @@ func TestRecordHistoryPageParsesDirectionMediaAndDeduplicates(t *testing.T) {
 			map[string]any{"message": map[string]any{"messageId": "m1", "createAt": float64(1000), "extension": map[string]any{"senderUserId": "peer@goofish", "reminderTitle": "对方"}, "content": map[string]any{"custom": map[string]any{"data": encoded(`{"contentType":1,"text":{"text":"较早的消息"}}`)}}}},
 		},
 	}
-	session := db.ChatSession{CookieID: "account-1", ChatID: "cid", BuyerID: "peer", BuyerName: "对方"}
+	session := db.ChatSession{CookieID: "account-1", ChatID: "cid", BuyerID: "peer", BuyerName: "对方", ItemID: "item-1"}
 	page, err := service.RecordHistoryPage(ctx, "account-1", "cid", "self", session, body)
 	if err != nil {
 		t.Fatal(err)
@@ -66,11 +66,12 @@ func TestRecordHistoryPageClassifiesOfficialCardsAsSystem(t *testing.T) {
 	body := map[string]any{"userMessageModels": []any{
 		map[string]any{"message": map[string]any{
 			"messageId": "official-card", "createAt": float64(3000),
+			"itemId":    "item-1",
 			"extension": map[string]any{"senderUserId": "peer@goofish", "reminderTitle": "买家已拍下，待付款"},
 			"content":   map[string]any{"custom": map[string]any{"data": encoded, "summary": "[我已拍下，待付款]"}},
 		}},
 	}}
-	session := db.ChatSession{CookieID: "account-1", ChatID: "official", BuyerID: "peer", BuyerName: "真实昵称"}
+	session := db.ChatSession{CookieID: "account-1", ChatID: "official", BuyerID: "peer", BuyerName: "真实昵称", ItemID: "item-1"}
 	if _, _, err := store.Chats.SaveMessage(context.Background(), session, db.ChatMessage{
 		MessageKey: "official-card", Direction: "incoming", SenderID: "peer", SenderName: "真实昵称",
 		MessageType: "text", Content: "[我已拍下，待付款]", Status: "received", SentAt: 3000,
@@ -98,11 +99,8 @@ func TestRecordIncomingClassifiesXianxiaomiAndPlaceholder(t *testing.T) {
 		BuyerName: "闲小蜜发来一条新消息", Text: "邀您填写售后问卷",
 		Raw: map[string]any{"messageId": "xiaomi-1"},
 	})
-	if err != nil || !inserted {
-		t.Fatalf("record xianxiaomi message: message=%+v inserted=%v err=%v", message, inserted, err)
-	}
-	if message.MessageType != "system" || message.SenderName != "闲小蜜" {
-		t.Fatalf("xianxiaomi message was not classified: %+v", message)
+	if err != nil || inserted || message != nil {
+		t.Fatalf("xianxiaomi message should be isolated: message=%+v inserted=%v err=%v", message, inserted, err)
 	}
 }
 
@@ -112,9 +110,7 @@ func TestRecordIncomingExtractsMessageIDFromEncodedExtension(t *testing.T) {
 	service := New(store)
 	message, _, err := service.RecordIncoming(context.Background(), Incoming{
 		AccountID: "account-1", ChatID: "live", BuyerID: "peer", BuyerName: "对方", Text: "实时消息",
-		Raw: map[string]any{"1": map[string]any{"10": map[string]any{
-			"extJson": `{"messageId":"live-123"}`,
-		}}},
+		ItemID: "item-1", Raw: map[string]any{"messageId": "live-123", "itemId": "item-1"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -134,8 +130,8 @@ func TestRecordConversationPageImportsHistoricalContacts(t *testing.T) {
 	}
 	body := map[string]any{"hasMore": true, "nextCursor": float64(888), "userConvs": []any{
 		map[string]any{"singleChatUserConversation": map[string]any{
-			"singleChatConversation": map[string]any{"cid": "history-cid@goofish", "pairFirst": "self@goofish", "pairSecond": "peer-9@goofish", "extension": `{"itemTitle":"旧商品"}`},
-			"lastMessage":            map[string]any{"message": map[string]any{"createAt": float64(123456), "extension": map[string]any{"senderUserId": "peer-9@goofish", "reminderTitle": "历史用户"}, "content": map[string]any{"custom": map[string]any{"data": encoded}}}},
+			"singleChatConversation": map[string]any{"cid": "history-cid@goofish", "pairFirst": "self@goofish", "pairSecond": "peer-9@goofish", "extension": `{"itemId":"item-1","itemTitle":"旧商品"}`},
+			"lastMessage":            map[string]any{"message": map[string]any{"itemId": "item-1", "createAt": float64(123456), "extension": map[string]any{"senderUserId": "peer-9@goofish", "reminderTitle": "历史用户"}, "content": map[string]any{"custom": map[string]any{"data": encoded}}}},
 			"modifyTime":             float64(987654), "redPoint": float64(2),
 		}},
 	}}
@@ -176,7 +172,7 @@ func TestRecordConversationPageHandlesXianxiaomiAndRemovesInvisibleSessions(t *t
 		map[string]any{"singleChatUserConversation": map[string]any{"visible": float64(1), "modifyTime": float64(123),
 			"singleChatConversation": map[string]any{"cid": "xiaomi@goofish", "pairFirst": "self@goofish", "pairSecond": "0@goofish", "extension": map[string]any{"extUserId": "1400"}},
 			"redPoint":               float64(3),
-			"lastMessage":            map[string]any{"message": map[string]any{"extension": map[string]any{"senderUserId": "1400@goofish", "reminderTitle": "闲小蜜发来一条新消息"}, "content": map[string]any{"custom": map[string]any{"summary": "邀您填写售后问卷"}}}}}},
+			"lastMessage":            map[string]any{"message": map[string]any{"itemId": "item-1", "extension": map[string]any{"senderUserId": "1400@goofish", "reminderTitle": "闲小蜜发来一条新消息"}, "content": map[string]any{"custom": map[string]any{"summary": "邀您填写售后问卷"}}}}}},
 	}}
 	if _, err := service.RecordConversationPage(ctx, "account-1", "self", body); err != nil {
 		t.Fatal(err)
@@ -211,7 +207,7 @@ func TestConversationUnreadCountUsesRedPointButFiltersSystemMessages(t *testing.
 
 	if _, _, err := service.RecordIncoming(context.Background(), Incoming{
 		AccountID: "account-1", ChatID: "real", BuyerID: "peer", BuyerName: "真实用户", Text: "未读消息",
-		MessageID: "real-unread", Raw: map[string]any{"messageId": "real-unread"},
+		Raw: map[string]any{"messageId": "real-unread"}, ItemID: "item-1",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -264,8 +260,8 @@ func TestRecordConversationPageSkipsEmptyConversationShells(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || rows[0].ChatID != "system" {
-		t.Fatalf("empty conversation shell was imported: %+v", rows)
+	if len(rows) != 0 {
+		t.Fatalf("无商品会话不应被导入: %+v", rows)
 	}
 }
 
@@ -277,7 +273,7 @@ func TestDeleteEmptySessionsRemovesGhostsButKeepsRealConversation(t *testing.T) 
 	if err := store.Chats.UpsertSession(ctx, ghost); err != nil {
 		t.Fatal(err)
 	}
-	real := db.ChatSession{CookieID: "account-1", ChatID: "real", BuyerID: "peer-real", LastMessage: "暂无消息", LastMessageAt: 200}
+	real := db.ChatSession{CookieID: "account-1", ChatID: "real", BuyerID: "peer-real", ItemID: "item-1", LastMessage: "暂无消息", LastMessageAt: 200}
 	if _, _, err := store.Chats.SaveMessage(ctx, real, db.ChatMessage{MessageKey: "real-1", Direction: "incoming", SenderID: "peer-real", SenderName: "真实用户", MessageType: "text", Content: "真实消息", Status: "received", SentAt: 200}, false); err != nil {
 		t.Fatal(err)
 	}
