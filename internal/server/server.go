@@ -87,6 +87,8 @@ type Server struct {
 	qrPersistLocks   sync.Map
 	loginLimiter     *loginFailureLimiter
 	initializationMu sync.Mutex
+	updateMu         sync.Mutex
+	updateState      updateJobState
 }
 
 // SetChatService installs the shared chat persistence and live event hub.
@@ -209,6 +211,7 @@ func (s *Server) Router() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(auth.RequireAdmin)
 			s.mountAdminReal(r)
+			s.mountUpdate(r)
 		})
 	})
 

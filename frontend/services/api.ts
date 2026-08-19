@@ -1024,7 +1024,39 @@ export const testNotificationChannel = async (channelId: string): Promise<ApiRes
   return post(`/notification-channels/${channelId}/test`, {});
 }
 
-// Default Reply
+export interface UpdateRelease {
+  tag_name: string;
+  html_url: string;
+  name: string;
+  body: string;
+}
+
+export interface UpdateCheck {
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+  release_url: string;
+  release_name: string;
+  release_notes: string;
+}
+
+export interface UpdateState {
+  running: boolean;
+  status: string;
+  message: string;
+  current_version: string;
+  latest_version: string;
+  started_at?: number;
+  finished_at?: number;
+}
+
+export const checkForUpdate = async (): Promise<UpdateCheck> => get('/api/update/check');
+export const getUpdateReleases = async (): Promise<{ releases: UpdateRelease[] }> => get('/api/update/releases');
+export const getUpdateStatus = async (): Promise<UpdateState> => get('/api/update/status');
+export const applyUpdate = async (version?: string): Promise<UpdateState | { success: boolean; message: string }> =>
+  post('/api/update/apply', version ? { version } : {});
+export const rollbackUpdate = async (version: string): Promise<UpdateState> =>
+  post('/api/update/rollback', { version });
 export const getDefaultReplies = async (): Promise<Record<string, DefaultReply>> => {
   return get('/api/default-replies');
 };

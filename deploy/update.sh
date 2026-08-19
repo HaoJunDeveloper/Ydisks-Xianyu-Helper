@@ -20,7 +20,12 @@ set -a
 source .env
 set +a
 
-readonly SOURCE_IMAGE="${XIANYU_IMAGE_SOURCE:-ghcr.io/haojundeveloper/ydisks-xianyu-helper:main}"
+UPDATE_VERSION="${XIANYU_UPDATE_VERSION:-}"
+SOURCE_IMAGE="${XIANYU_IMAGE_SOURCE:-ghcr.io/haojundeveloper/ydisks-xianyu-helper:main}"
+if [[ -n "${UPDATE_VERSION}" ]]; then
+  SOURCE_IMAGE="${XIANYU_IMAGE_REPOSITORY:-ghcr.io/haojundeveloper/ydisks-xianyu-helper}:${UPDATE_VERSION#v}"
+fi
+readonly SOURCE_IMAGE UPDATE_VERSION
 readonly HEALTH_URL="http://127.0.0.1:${XIANYU_HTTP_PORT:-59188}/health"
 readonly TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_FILE=""
