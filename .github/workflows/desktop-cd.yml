@@ -182,6 +182,9 @@ jobs:
           if-no-files-found: error
 
   windows:
+    name: Windows 安装包
+    needs: prepare
+    runs-on: windows-latest
     env:
       APP_VERSION: ${{ needs.prepare.outputs.app_version }}
       BUILD_VERSION: ${{ needs.prepare.outputs.build_version }}
@@ -595,6 +598,9 @@ jobs:
           if-no-files-found: error
 
   macos:
+    name: macOS 安装包
+    needs: prepare
+    runs-on: macos-14
     env:
       APP_VERSION: ${{ needs.prepare.outputs.app_version }}
       BUILD_VERSION: ${{ needs.prepare.outputs.build_version }}
